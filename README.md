@@ -7,8 +7,8 @@
 <sup>1</sup>ETH Zurich <sup>2</sup>ETH AI Center
 
 
-![teaser](./imgs/teaser.jpg)
-
+<!-- ![teaser](./imgs/teaser.jpg) -->
+<img src="./imgs/teaser.jpg" width=80% height=80%>
 
 </div>
 
