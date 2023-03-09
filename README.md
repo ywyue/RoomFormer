@@ -22,10 +22,10 @@ This repository provides code, data and pretrained models for **RoomFormer**, a 
 
 ### Citation
 ```
-@article{yue2022connecting,
+@article{yue2023connecting,
   author    = {Yue, Yuanwen and Kontogianni, Theodora and Schindler, Konrad and Engelmann, Francis},
   title     = {{Connecting the Dots: Floorplan Reconstruction Using Two-Level Queries}},
   journal   = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-  year      = {2022},
+  year      = {2023},
 }
 ```
