@@ -17,14 +17,15 @@ This repository provides code, data and pretrained models for **RoomFormer**, a 
 
 [[Project Webpage](https://ywyue.github.io/RoomFormer/)]    [[Paper](https://arxiv.org/abs/2211.15658)]
 
-***Code coming soon, stay tuned!***
+# News
+- [2023/02]: RoomFormer is accepted by [CVPR 2023](https://cvpr2023.thecvf.com/). Code is expected to be released in mid-March.
 
 ### Citation
 ```
 @article{yue2022connecting,
   author    = {Yue, Yuanwen and Kontogianni, Theodora and Schindler, Konrad and Engelmann, Francis},
   title     = {{Connecting the Dots: Floorplan Reconstruction Using Two-Level Queries}},
-  journal   = {arXiv preprint arXiv:2211.15658},
+  journal   = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
   year      = {2022},
 }
 ```
