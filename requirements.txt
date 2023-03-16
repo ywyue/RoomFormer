@@ -1,0 +1,15 @@
+opencv-python
+numpy==1.19.0
+matplotlib==3.6.2
+imageio==2.19.3
+wandb==0.12.19
+scipy==1.8.1
+fvcore
+cloudpickle==2.1.0
+omegaconf==2.2.2
+fairscale==0.4.6
+timm==0.5.4
+shapely==1.8.2
+tqdm==4.64.0
+pycocotools
+descartes

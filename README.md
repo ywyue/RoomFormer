@@ -17,10 +17,143 @@ This repository provides code, data and pretrained models for **RoomFormer**, a 
 
 [[Project Webpage](https://ywyue.github.io/RoomFormer/)]    [[Paper](https://arxiv.org/abs/2211.15658)]
 
-# News
-- [2023/02]: RoomFormer is accepted by [CVPR 2023](https://cvpr2023.thecvf.com/). Code is expected to be released in mid-March.
 
-### Citation
+<details open="open" style='padding: 10px; border-radius:5px 30px 30px 5px; border-style: solid; border-width: 1px;'>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li>
+      <a href="#abstract">Abstract</a>
+    </li>
+    <li>
+      <a href="#method">Method</a>
+    </li>
+    <li>
+      <a href="#preparation">Preparation</a>
+    </li>
+    <li>
+      <a href="#evaluation">Evaluation</a>
+    </li>
+    <li>
+      <a href="#training">Training</a>
+    </li>
+    <li>
+      <a href="#citation">Citation</a>
+    </li>
+    <li>
+      <a href="#acknowledgment">Acknowledgment</a>
+    </li>
+  </ol>
+</details>
+
+
+## Abstract
+
+We address 2D floorplan reconstruction from 3D scans. Existing approaches typically employ heuristically designed multi-stage pipelines. Instead, we formulate floorplan reconstruction as a single-stage structured prediction task: find a variable-size set of polygons, which in turn are variable-length sequences of ordered vertices. To solve it we develop a novel Transformer architecture that generates polygons of multiple rooms in parallel, in a holistic manner without hand-crafted intermediate stages. The model features two-level queries for polygons and corners, and includes polygon matching to make the network end-to-end trainable. Our method achieves a new state-of-the-art for two challenging datasets, Structured3D and SceneCAD, along with significantly faster inference than previous methods. Moreover, it can readily be extended to predict additional information, i.e., semantic room types and architectural elements like doors and windows.
+
+
+## Method
+ ![space-1.jpg](./imgs/model.gif) 
+
+**Illustration of the RoomFormer model**. Given a top-down-view density map of the input point cloud, (a) the feature backbone extracts multi-scale features, adds positional encodings, and flattens them before passing them into the (b) Transformer encoder. (c) The Transformer decoder takes as input our two-level queries, one level for the room polygons (up to M) and one level for their corners (up to N per room polygon). A feed-forward network (FFN) predicts a class c for each query to accommodate for varying numbers of rooms and corners. During training, the polygon matching guarantees optimal assignment between predicted and groundtruth polygons.
+
+
+## Preparation
+### Environment
+* The code has been tested on Linux with python 3.8, torch 1.9.0, and cuda 11.1.
+* We recommend an installation through conda:
+  * Create an environment:
+  ```shell
+  conda create -n roomformer python=3.8
+  conda activate roomformer
+  ```
+  * Install pytorch and other required packages:
+  ```shell
+  # adjust the cuda version accordingly
+  pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+  pip install -r requirements.txt
+  ```
+  * Compile the deformable-attention modules (from [deformable-DETR](https://github.com/fundamentalvision/Deformable-DETR)) and the differentiable rasterization module (from [BoundaryFormer](https://github.com/mlpc-ucsd/BoundaryFormer)):
+  ```shell
+  cd models/ops
+  sh make.sh
+
+  # unit test for deformable-attention modules (should see all checking is True)
+  # python test.py
+
+  cd ../../diff_ras
+  python setup.py build develop
+  ```
+
+
+### Data
+
+#### Structured3D
+
+We convert multi-view RGB-D panoramas to point clouds, and project the point clouds along the vertical axis into density images. Please download [our processed Structured3D dataset](https://polybox.ethz.ch/index.php/s/oVx6lWb51lP1PmJ) in COCO format and organize them as following:
+```
+code_root/
+└── data/
+    └── stru3d/
+        ├── train/
+        ├── val/
+        ├── test/
+        └── annotations/
+            ├── train.json
+            ├── val.json
+            └── test.json
+```
+
+
+
+
+#### SceneCAD
+
+[SceneCAD](https://github.com/skanti/SceneCAD) contains 3D room layout annotations on
+real-world RGB-D scans of [ScanNet](https://github.com/ScanNet/ScanNet). We convert the layout annotations to 2D floorplan polygons. We use the same procedure as in Structured3D to project RGB-D scans to density maps. Please download [our processed SceneCAD dataset](https://polybox.ethz.ch/index.php/s/VfrJdPvTgG0EBJG) in COCO format and organize them as following:
+```
+code_root/
+└── data/
+    └── scenecad/
+        ├── train/
+        ├── val/
+        └── annotations/
+            ├── train.json
+            ├── val.json
+```
+### Checkpoints
+
+Please download and extract the checkpoints of our model from [this link](https://polybox.ethz.ch/index.php/s/vlBo66X0NTrcsTC).
+
+
+## Evaluation
+
+#### Structured3D
+We use the same evaluation scripts with [MonteFloor](https://openaccess.thecvf.com/content/ICCV2021/papers/Stekovic_MonteFloor_Extending_MCTS_for_Reconstructing_Accurate_Large-Scale_Floor_Plans_ICCV_2021_paper.pdf). Please first download the ground truth data used by [MonteFloor](https://openaccess.thecvf.com/content/ICCV2021/papers/Stekovic_MonteFloor_Extending_MCTS_for_Reconstructing_Accurate_Large-Scale_Floor_Plans_ICCV_2021_paper.pdf) and [HEAT](https://openaccess.thecvf.com/content/CVPR2022/papers/Chen_HEAT_Holistic_Edge_Attention_Transformer_for_Structured_Reconstruction_CVPR_2022_paper.pdf) with [this link](https://drive.google.com/file/d/1XpKm3vjvw4lOw32pX81w0U0YL_PBuzez/view?usp=sharing) (required by the evaluation code) and extract it as ```./s3d_floorplan_eval/montefloor_data```. Then run following command to evaluate the model on Structured3D test set:
+```shell
+python eval.py --dataset_name=stru3d --dataset_root=data/stru3d --eval_set=test --checkpoint=checkpoints/roomformer_stru3d.pth --output_dir=eval_stru3d
+```
+If you want to evaluate our model trained on a "tight" room layout (see paper appendix), please run:
+```shell
+python eval.py --dataset_name=stru3d --dataset_root=data/stru3d --eval_set=test --checkpoint=checkpoints/roomformer_stru3d_tight.pth --output_dir=eval_stru3d_tight
+```
+#### SceneCAD
+We adapted the evaluation scripts from MonteFloor to evaluate SceneCAD:
+```shell
+python eval.py --dataset_name=scenecad --dataset_root=data/scenecad --eval_set=val --checkpoint=checkpoints/roomformer_scenecad.pth --output_dir=eval_scenecad
+```
+
+## Training
+The command for training RoomFormer on Structured3D is as follows:
+```shell
+python main.py --dataset_name=stru3d --dataset_root=data/stru3d --job_name=train_stru3d
+```
+Similarly, to train RoomFormer on SceneCAD, run the following command:
+```shell
+python main.py --lr=5e-5 --epochs=400 --lr_drop=[320] --dataset_name=scenecad --dataset_root=data/scenecad --job_name=train_scenecad
+```
+
+## Citation
+If you find RoomFormer useful in your research, please cite our paper:
 ```
 @inproceedings{yue2023connecting,
   title     = {{Connecting the Dots: Floorplan Reconstruction Using Two-Level Queries}},
@@ -29,3 +162,15 @@ This repository provides code, data and pretrained models for **RoomFormer**, a 
   year      = {2023}
 }
 ```
+
+## Acknowledgment
+
+We thank the authors of HEAT and MonteFloor for providing results on Structured3D for convenient comparison. Theodora Kontogianni and Francis Engelmann are postdoctoral research fellows at the ETH AI Center. We also thank for the following excellent open source projects:
+
+* [DETR](https://github.com/facebookresearch/detr)
+* [Deformable-DETR](https://github.com/fundamentalvision/Deformable-DETR)
+* [Detectron2](https://github.com/facebookresearch/detectron2)
+* [HEAT](https://github.com/woodfrog/heat)
+* [BoundaryFormer](https://github.com/mlpc-ucsd/BoundaryFormer)
+
+
