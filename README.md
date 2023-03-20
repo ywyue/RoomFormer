@@ -152,6 +152,10 @@ Similarly, to train RoomFormer on SceneCAD, run the following command:
 python main.py --lr=5e-5 --epochs=400 --lr_drop=[320] --dataset_name=scenecad --dataset_root=data/scenecad --job_name=train_scenecad
 ```
 
+
+## Semantically-rich Floorplan
+*** ***Instructions will come soon.*** ***
+
 ## Citation
 If you find RoomFormer useful in your research, please cite our paper:
 ```
