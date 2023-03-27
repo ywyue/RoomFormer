@@ -87,6 +87,8 @@ We address 2D floorplan reconstruction from 3D scans. Existing approaches typica
 
 ### Data
 
+We directly provide the processed data in the required format below. For details on data preprocessing, please refer to [data_preprocess](data_preprocess).
+
 #### Structured3D
 
 We convert multi-view RGB-D panoramas to point clouds, and project the point clouds along the vertical axis into density images. Please download [our processed Structured3D dataset](https://polybox.ethz.ch/index.php/s/oVx6lWb51lP1PmJ) in COCO format and organize them as following:
@@ -120,6 +122,8 @@ code_root/
             ├── train.json
             ├── val.json
 ```
+
+
 ### Checkpoints
 
 Please download and extract the checkpoints of our model from [this link](https://polybox.ethz.ch/index.php/s/vlBo66X0NTrcsTC).
