@@ -60,8 +60,10 @@ def get_args_parser():
                         help="iteratively refine reference points (i.e. positional part of polygon queries)")
     parser.add_argument('--masked_attn', default=False, action='store_true',
                         help="if true, the query in one room will not be allowed to attend other room")
-    parser.add_argument('--room_type', default=False, action='store_true',
-                        help="semantically-rich floorplan")
+    parser.add_argument('--semantic_classes', default=-1, type=int,
+                        help="Number of classes for semantically-rich floorplan:  \
+                        1. default -1 means non-semantic floorplan \
+                        2. 19 for Structured3D: 16 room types + 1 door + 1 window + 1 empty")
 
     # aux
     parser.add_argument('--no_aux_loss', dest='aux_loss', action='store_true',
@@ -70,13 +72,13 @@ def get_args_parser():
     # dataset parameters
     parser.add_argument('--dataset_name', default='stru3d')
     parser.add_argument('--dataset_root', default='data/stru3d', type=str)
-    parser.add_argument('--eval_set', default='val', type=str)
+    parser.add_argument('--eval_set', default='test', type=str)
 
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
     parser.add_argument('--num_workers', default=2, type=int)
     parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--checkpoint', default='output/2022-11-11-03-04-06_5e5_400_320_run10/checkpoint0399.pth', help='resume from checkpoint')
+    parser.add_argument('--checkpoint', default='checkpoints/roomformer_scenecad.pth', help='resume from checkpoint')
     parser.add_argument('--output_dir', default='eval_stru3d',
                         help='path where to save result')
 
@@ -139,7 +141,8 @@ def main(args):
                    device, save_dir, 
                    plot_pred=args.plot_pred, 
                    plot_density=args.plot_density, 
-                   plot_gt=args.plot_gt
+                   plot_gt=args.plot_gt,
+                   semantic_rich=args.semantic_classes>0
                    )
 
 

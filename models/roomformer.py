@@ -31,7 +31,7 @@ def _get_clones(module, N):
 class RoomFormer(nn.Module):
     """ This is the Deformable Floormer module that performs floorplan reconstruction """
     def __init__(self, backbone, transformer, num_classes, num_queries, num_polys, num_feature_levels,
-                 aux_loss=True, with_poly_refine=False, masked_attn=False, room_type=False):
+                 aux_loss=True, with_poly_refine=False, masked_attn=False, semantic_classes=-1):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -105,12 +105,10 @@ class RoomFormer(nn.Module):
         self.transformer.decoder.coords_embed = self.coords_embed
         self.transformer.decoder.class_embed = self.class_embed
         
-
+        # Semantically-rich floorplan
         self.room_class_embed = None
-        if room_type:
-            # hard coded room class here, 16 room classes with 1 empty class
-            # if consider window and door, then it will be 19
-            self.room_class_embed = nn.Linear(hidden_dim, 19)
+        if semantic_classes > 0:
+            self.room_class_embed = nn.Linear(hidden_dim, semantic_classes)
 
 
         self.num_queries_per_poly = num_queries // num_polys
@@ -201,26 +199,23 @@ class SetCriterion(nn.Module):
         1) we compute hungarian assignment between ground truth polygons and the outputs of the model
         2) we supervise each pair of matched ground-truth / prediction (supervise class and coords)
     """
-    def __init__(self, num_classes, matcher, weight_dict, losses):
+    def __init__(self, num_classes, semantic_classes, matcher, weight_dict, losses):
         """ Create the criterion.
         Parameters:
-            num_classes: number of object categories, omitting the special no-object category
+            num_classes: number of classes for corner validity (binary)
+            semantic_classes: number of semantic classes for polygon (room type, door, window)
             matcher: module able to compute a matching between targets and proposals
             weight_dict: dict containing as key the names of the losses and as values their relative weight.
             losses: list of all the losses to be applied. See get_loss for list of available losses.
         """
         super().__init__()
         self.num_classes = num_classes
+        self.semantic_classes = semantic_classes
         self.matcher = matcher
         self.weight_dict = weight_dict
         self.losses = losses
         self.raster_loss = MaskRasterizationLoss(None)
 
-        # pos_weight = torch.Tensor([3])
-        # self.register_buffer('pos_weight', pos_weight)
-        # empty_weight = torch.ones(19)
-        # empty_weight[-1] = 0.0
-        # self.register_buffer('empty_weight', empty_weight)
 
     def loss_labels(self, outputs, targets, indices):
         """Classification loss (NLL)
@@ -241,15 +236,14 @@ class SetCriterion(nn.Module):
 
         losses = {'loss_ce': loss_ce}
 
-        # hack implementation of room label prediction
+        # hack implementation of room label/door/window prediction
         if 'pred_room_logits' in outputs:
-            room_src_logits = outputs['pred_room_logits'] # [3, 70, 19]
-            room_target_classes_o = torch.cat([t["room_labels"][J] for t, (_, J) in zip(targets, indices)]) # [63]
-            room_target_classes = torch.full(room_src_logits.shape[:2], 18, # 18 for considering window/door
-                                        dtype=torch.int64, device=room_src_logits.device) # [3, 70]
+            room_src_logits = outputs['pred_room_logits']
+            room_target_classes_o = torch.cat([t["room_labels"][J] for t, (_, J) in zip(targets, indices)])
+            room_target_classes = torch.full(room_src_logits.shape[:2], self.semantic_classes-1,
+                                        dtype=torch.int64, device=room_src_logits.device)
             room_target_classes[idx] = room_target_classes_o
             loss_ce_room = F.cross_entropy(room_src_logits.transpose(1, 2), room_target_classes)
-            # loss_ce_room = F.cross_entropy(room_src_logits.transpose(1, 2), room_target_classes, self.empty_weight)
             losses = {'loss_ce': loss_ce, 'loss_ce_room': loss_ce_room}
 
         return losses
@@ -283,11 +277,13 @@ class SetCriterion(nn.Module):
 
         loss_coords = custom_L1_loss(src_polys.flatten(1,2), target_polys, target_len)
 
-        loss_raster_mask = self.raster_loss(src_polys.flatten(1,2), target_polys, target_len)
-
         losses = {}
         losses['loss_coords'] = loss_coords
-        losses['loss_raster'] = loss_raster_mask
+
+        # omit the rasterization loss for semantically-rich floorplan
+        if self.semantic_classes == -1:
+            loss_raster_mask = self.raster_loss(src_polys.flatten(1,2), target_polys, target_len)
+            losses['loss_raster'] = loss_raster_mask
 
         return losses
 
@@ -385,7 +381,7 @@ def build(args, train=True):
         aux_loss=args.aux_loss,
         with_poly_refine=args.with_poly_refine,
         masked_attn=args.masked_attn,
-        room_type=args.room_type
+        semantic_classes=args.semantic_classes
     )
 
     if not train:
@@ -414,7 +410,7 @@ def build(args, train=True):
 
     losses = ['labels', 'polys', 'cardinality']
     # num_classes, matcher, weight_dict, losses
-    criterion = SetCriterion(num_classes, matcher, weight_dict, losses)
+    criterion = SetCriterion(num_classes, args.semantic_classes, matcher, weight_dict, losses)
     criterion.to(device)
 
     return model, criterion

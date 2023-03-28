@@ -91,7 +91,7 @@ We directly provide the processed data in the required format below. For details
 
 #### Structured3D
 
-We convert multi-view RGB-D panoramas to point clouds, and project the point clouds along the vertical axis into density images. Please download [our processed Structured3D dataset](https://polybox.ethz.ch/index.php/s/oVx6lWb51lP1PmJ) in COCO format and organize them as following:
+We convert multi-view RGB-D panoramas to point clouds, and project the point clouds along the vertical axis into density images. Please download [our processed Structured3D dataset](https://polybox.ethz.ch/index.php/s/wKYWFsQOXHnkwcG) (update: 03/28/2023) in COCO format and organize them as following:
 ```
 code_root/
 └── data/
@@ -134,31 +134,38 @@ Please download and extract the checkpoints of our model from [this link](https:
 #### Structured3D
 We use the same evaluation scripts with [MonteFloor](https://openaccess.thecvf.com/content/ICCV2021/papers/Stekovic_MonteFloor_Extending_MCTS_for_Reconstructing_Accurate_Large-Scale_Floor_Plans_ICCV_2021_paper.pdf). Please first download the ground truth data used by [MonteFloor](https://openaccess.thecvf.com/content/ICCV2021/papers/Stekovic_MonteFloor_Extending_MCTS_for_Reconstructing_Accurate_Large-Scale_Floor_Plans_ICCV_2021_paper.pdf) and [HEAT](https://openaccess.thecvf.com/content/CVPR2022/papers/Chen_HEAT_Holistic_Edge_Attention_Transformer_for_Structured_Reconstruction_CVPR_2022_paper.pdf) with [this link](https://drive.google.com/file/d/1XpKm3vjvw4lOw32pX81w0U0YL_PBuzez/view?usp=sharing) (required by the evaluation code) and extract it as ```./s3d_floorplan_eval/montefloor_data```. Then run following command to evaluate the model on Structured3D test set:
 ```shell
-python eval.py --dataset_name=stru3d --dataset_root=data/stru3d --eval_set=test --checkpoint=checkpoints/roomformer_stru3d.pth --output_dir=eval_stru3d
+./tools/eval_stru3d.sh
 ```
 If you want to evaluate our model trained on a "tight" room layout (see paper appendix), please run:
 ```shell
-python eval.py --dataset_name=stru3d --dataset_root=data/stru3d --eval_set=test --checkpoint=checkpoints/roomformer_stru3d_tight.pth --output_dir=eval_stru3d_tight
+./tools/eval_stru3d_tight.sh
 ```
+Please note the evaluation still runs on the unmodified groundtruth floorplans from MonteFloor. However, we also provide our processed "tight" room layout [here](https://polybox.ethz.ch/index.php/s/iPBvp7zAjCXRjyd) in case one wants to retrain the model on it.
 #### SceneCAD
 We adapted the evaluation scripts from MonteFloor to evaluate SceneCAD:
 ```shell
-python eval.py --dataset_name=scenecad --dataset_root=data/scenecad --eval_set=val --checkpoint=checkpoints/roomformer_scenecad.pth --output_dir=eval_scenecad
+./tools/eval_scenecad.sh
 ```
 
 ## Training
 The command for training RoomFormer on Structured3D is as follows:
 ```shell
-python main.py --dataset_name=stru3d --dataset_root=data/stru3d --job_name=train_stru3d
+./tools/train_stru3d.sh
 ```
 Similarly, to train RoomFormer on SceneCAD, run the following command:
 ```shell
-python main.py --lr=5e-5 --epochs=400 --lr_drop=[320] --dataset_name=scenecad --dataset_root=data/scenecad --job_name=train_scenecad
+./tools/train_scenecad.sh
 ```
 
 
 ## Semantically-rich Floorplan
-*** ***Instructions will come soon.*** ***
+RoomFormer can be easily extended to predict room types, doors and windows. We provide the implementation and model for SD-TQ (The variant with minimal changes to our original architecture). To evaluate or train on the semantically-rich floorplans of Structured3D, run the following commands:
+```shell
+### Evaluation:
+./tools/eval_stru3d_sem_rich.sh
+### Train:
+./tools/train_stru3d_sem_rich.sh
+```
 
 ## Citation
 If you find RoomFormer useful in your research, please cite our paper:

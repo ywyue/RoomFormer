@@ -9,6 +9,10 @@ import cv2
 from shapely.geometry import Polygon
 import random
 
+type2id = {'living room': 0, 'kitchen': 1, 'bedroom': 2, 'bathroom': 3, 'balcony': 4, 'corridor': 5,
+            'dining room': 6, 'study': 7, 'studio': 8, 'store room': 9, 'garden': 10, 'laundry room': 11,
+            'office': 12, 'basement': 13, 'garage': 14, 'undefined': 15, 'door': 16, 'window': 17, 'outwall':-1}
+
 def parse_floor_plan_polys(annos):
     planes = []
     for semantic in annos['semantics']:
@@ -94,6 +98,7 @@ def generate_floorplan(annos, polygons, height, width, ignore_types, include_typ
         room_ind = np.random.randint(0, 2)
 
     polygons_list = []
+    polygons_type_list = []
     for poly_ind, (polygon, poly_type) in enumerate(polygons):
         if poly_type in ignore_types:
             continue
@@ -106,10 +111,29 @@ def generate_floorplan(annos, polygons, height, width, ignore_types, include_typ
         area = poly_shapely.area
 
         # assert area > 10
-        if area < 100:
+        # if area < 100:
+        #     continue
+        if poly_type not in ['door', 'window'] and area < 100:
             continue
+        if poly_type in ['door', 'window'] and area < 1:
+            continue
+        
+        if poly_type in ['door', 'window']:
+            assert polygon.shape[0] == 4
+            midp_1 = (polygon[0] + polygon[1])/2
+            midp_2 = (polygon[1] + polygon[2])/2
+            midp_3 = (polygon[2] + polygon[3])/2
+            midp_4 = (polygon[3] + polygon[0])/2
+
+            dist_1_3 = np.square(midp_1 -midp_3).sum()
+            dist_2_4 = np.square(midp_2 -midp_4).sum()
+            if dist_1_3 > dist_2_4:
+                polygon = np.row_stack([midp_1, midp_3])
+            else:
+                polygon = np.row_stack([midp_2, midp_4])
 
         polygons_list.append(polygon)
+        polygons_type_list.append(type2id[poly_type])
 
     if shuffle:
         random.shuffle(polygons_list)
@@ -128,6 +152,6 @@ def generate_floorplan(annos, polygons, height, width, ignore_types, include_typ
             cv2.fillPoly(floor_map, [polygon], color=clr)
         else:
             assert constant_color
-            cv2.polylines(floor_map, [polygon], isClosed=True, color=1., thickness=3)
+            cv2.polylines(floor_map, [polygon.astype(np.int32)], isClosed=True, color=1., thickness=3)
 
-    return floor_map, polygons_list
+    return floor_map, polygons_list, polygons_type_list

@@ -19,11 +19,12 @@ from detectron2.structures import BoxMode
 
 
 class MultiPoly(Dataset):
-    def __init__(self, img_folder, ann_file, transforms):
+    def __init__(self, img_folder, ann_file, transforms, semantic_classes):
         super(MultiPoly, self).__init__()
 
         self.root = img_folder
         self._transforms = transforms
+        self.semantic_classes = semantic_classes
         self.coco = COCO(ann_file)
         self.ids = list(sorted(self.coco.imgs.keys()))
 
@@ -47,6 +48,10 @@ class MultiPoly(Dataset):
 
         ann_ids = coco.getAnnIds(imgIds=img_id)
         target = coco.loadAnns(ann_ids)
+
+        ### Note: here is a hack which assumes door/window have category_id 16, 17 in structured3D
+        if self.semantic_classes == -1:
+            target = [t for t in target if t['category_id'] not in [16, 17]]
 
         path = coco.loadImgs(img_id)[0]['file_name']
 
@@ -128,6 +133,6 @@ def build(image_set, args):
 
     img_folder, ann_file = PATHS[image_set]
     
-    dataset = MultiPoly(img_folder, ann_file, transforms=make_poly_transforms(image_set))
+    dataset = MultiPoly(img_folder, ann_file, transforms=make_poly_transforms(image_set), semantic_classes=args.semantic_classes)
     
     return dataset

@@ -2,6 +2,7 @@
 Utilities for floorplan visualization.
 """
 import torch
+import math
 import matplotlib.pyplot as plt
 from matplotlib.patches import Arc
 import matplotlib.patches as mpatches
@@ -10,8 +11,10 @@ import cv2
 import numpy as np
 from imageio import imsave
 
+from shapely.geometry import LineString
 from shapely.geometry import Polygon
 from descartes.patch import PolygonPatch
+
 
 colors_12 = [
     "#e6194b",
@@ -178,19 +181,6 @@ def plot_room_map(preds, room_map, im_size=256):
     return room_map
 
 
-def filled_arc(center, radius, theta1, theta2, ax, color):
-    """Draw arc for door
-    """
-    circ = mpatches.Wedge(center, radius, theta1, theta2, fill=True, color=color, linewidth=1, ec='#000000')
-    pt1 = (radius * (np.cos(theta1*np.pi/180.)) + center[0],
-           radius * (np.sin(theta1*np.pi/180.)) + center[1])
-    pt2 = (radius * (np.cos(theta2*np.pi/180.)) + center[0],
-           radius * (np.sin(theta2*np.pi/180.)) + center[1])
-    pt3 = center
-    ax.add_patch(circ)
-
-
-
 def plot_anno(img, annos, save_path, transformed=False, draw_poly=True, draw_bbx=True, thickness=2):
     """Visualize annotation
     """
@@ -232,9 +222,124 @@ def plot_anno(img, annos, save_path, transformed=False, draw_poly=True, draw_bbx
 
 def plot_coords(ax, ob, color=BLACK, zorder=1, alpha=1, linewidth=1):
     x, y = ob.xy
-    ax.plot(x, y, color=color, zorder=zorder, alpha=alpha, linewidth=linewidth)
+    ax.plot(x, y, color=color, zorder=zorder, alpha=alpha, linewidth=linewidth, solid_joinstyle='miter')
 
 
 def plot_corners(ax, ob, color=BLACK, zorder=1, alpha=1):
     x, y = ob.xy
     ax.scatter(x, y, color=color, marker='o')
+
+def get_angle(p1, p2):
+    """Get the angle of this line with the horizontal axis.
+    """
+    dx = p2[0] - p1[0]
+    dy = p2[1] - p1[1]
+    theta = math.atan2(dy, dx)
+    angle = math.degrees(theta)  # angle is in (-180, 180]
+    if angle < 0:
+        angle = 360 + angle
+    return angle
+
+def filled_arc(e1, e2, direction, radius, ax, color):
+    """Draw arc for door
+    """
+    angle = get_angle(e1,e2)
+    if direction == 'counterclock':
+        theta1 = angle
+        theta2 = angle + 90.0
+    else:
+        theta1 = angle - 90.0
+        theta2 = angle
+    circ = mpatches.Wedge(e1, radius, theta1, theta2, fill=True, color=color, linewidth=1, ec='#000000')
+    ax.add_patch(circ)
+
+
+def plot_semantic_rich_floorplan(polygons, file_name, prec=None, rec=None):
+    """plot semantically-rich floorplan (i.e. with additional room label, door, window)
+    """
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+
+    polygons_windows = []
+    polygons_doors = []
+
+    # Iterate over rooms to draw black outline
+    for (poly, poly_type) in polygons:
+        if len(poly) > 2:
+            polygon = Polygon(poly)
+            if poly_type != 16 and poly_type != 17:
+                plot_coords(ax, polygon.exterior, alpha=1.0, linewidth=10)
+
+    # Iterate over all predicted polygons (rooms, doors, windows)
+    for (poly, poly_type) in polygons:
+        if poly_type == 'outqwall':  # unclear what is this?
+            pass
+        elif poly_type == 16:  # Door
+            door_length = math.dist(poly[0], poly[1])
+            polygons_doors.append([poly, poly_type, door_length])
+        elif poly_type == 17:  # Window
+            polygons_windows.append([poly, poly_type])
+        else: # regular room
+            polygon = Polygon(poly)
+            patch = PolygonPatch(polygon, facecolor='#FFFFFF', alpha=1.0, linewidth=0)
+            ax.add_patch(patch)
+            patch = PolygonPatch(polygon, facecolor=semantics_cmap[poly_type], alpha=0.5, linewidth=1, capstyle='round', edgecolor='#000000FF')
+            ax.add_patch(patch)
+            ax.text(np.mean(poly[:, 0]), np.mean(poly[:, 1]), semantics_label[poly_type], size=6, horizontalalignment='center', verticalalignment='center')
+
+
+    # Compute door size statistics (median)
+    door_median_size = np.median([door_length for (_, _, door_length) in polygons_doors])
+
+    # Draw doors
+    for (poly, poly_type, door_size) in polygons_doors:
+
+        door_size_y = np.abs(poly[0,1]-poly[1,1])
+        door_size_x = np.abs(poly[0,0]-poly[1,0])
+        if door_size_y > door_size_x:
+            if poly[1,1] > poly[0,1]:
+                e1 = poly[0]
+                e2 = poly[1]
+            else:
+                e1 = poly[1]
+                e2 = poly[0]
+
+            if door_size < door_median_size * 1.5:
+                filled_arc(e1, e2, 'clock', door_size, ax, 'white')
+            else:
+                filled_arc(e1, e2, 'clock', door_size/2, ax, 'white')
+                filled_arc(e2, e1, 'counterclock', door_size/2, ax, 'white')
+
+        else:
+            if poly[1,0] > poly[0,0]:
+                e1 = poly[1]
+                e2 = poly[0]
+            else:
+                e1 = poly[0]
+                e2 = poly[1]
+
+            if door_size < door_median_size * 1.5:
+                filled_arc(e1, e2, 'counterclock', door_size, ax, 'white')
+            else:
+                filled_arc(e1, e2, 'counterclock', door_size/2, ax, 'white')
+                filled_arc(e2, e1, 'clock', door_size/2, ax, 'white')
+
+
+    # Draw windows
+    for (line, line_type) in polygons_windows:
+        line = LineString(line)
+        poly = line.buffer(1.5, cap_style=2)
+        patch = PolygonPatch(poly, facecolor='#FFFFFF', alpha=1.0, linewidth=1, linestyle='dashed')
+        ax.add_patch(patch)
+
+    title = ''
+    if prec is not None:
+        title = 'prec: ' + str(round(prec * 100, 1)) + ', rec: ' + str(round(rec * 100, 1))
+    plt.title(file_name.split('/')[-1] + ' ' + title)
+    plt.axis('equal')
+    plt.axis('off')
+
+    print(f'>>> {file_name}')
+    # fig.savefig(file_name[:-3]+'svg', dpi=fig.dpi, format='svg')
+    fig.savefig(file_name, dpi=fig.dpi)

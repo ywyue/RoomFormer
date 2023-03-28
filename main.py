@@ -73,8 +73,10 @@ def get_args_parser():
                         help="iteratively refine reference points (i.e. positional part of polygon queries)")
     parser.add_argument('--masked_attn', default=False, action='store_true',
                         help="if true, the query in one room will not be allowed to attend other room")
-    parser.add_argument('--room_type', default=False, action='store_true',
-                        help="semantically-rich floorplan")
+    parser.add_argument('--semantic_classes', default=-1, type=int,
+                        help="Number of classes for semantically-rich floorplan:  \
+                        1. default -1 means non-semantic floorplan \
+                        2. 19 for Structured3D: 16 room types + 1 door + 1 window + 1 empty")
 
     # loss
     parser.add_argument('--no_aux_loss', dest='aux_loss', action='store_true',
@@ -105,7 +107,7 @@ def get_args_parser():
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
     parser.add_argument('--num_workers', default=2, type=int)
-    parser.add_argument('--job_name', default='reproduce', type=str)
+    parser.add_argument('--job_name', default='train_stru3d', type=str)
 
     return parser
 
@@ -118,7 +120,7 @@ def main(args):
 
     # setup wandb for logging
     utils.setup_wandb()
-    wandb.init(project="RoomFormer")
+    wandb.init(project="Detr_floor")
     wandb.run.name = args.run_name
 
     device = torch.device(args.device)
@@ -265,7 +267,6 @@ def main(args):
                 "train/loss_ce": train_stats['loss_ce'],
                 "train/loss_coords": train_stats['loss_coords'],
                 "train/loss_coords_unscaled": train_stats['loss_coords_unscaled'],
-                "train/loss_raster": train_stats['loss_raster'],
                 "train/cardinality_error": train_stats['cardinality_error_unscaled']
                 }
 
@@ -274,7 +275,6 @@ def main(args):
                 "val/loss_ce": test_stats['loss_ce'],
                 "val/loss_coords": test_stats['loss_coords'],
                 "val/loss_coords_unscaled": test_stats['loss_coords_unscaled'],
-                "val/loss_raster": test_stats['loss_raster'],
                 "val/cardinality_error": test_stats['cardinality_error_unscaled'],
                 "val_metrics/room_prec": test_stats['room_prec'],
                 "val_metrics/room_rec": test_stats['room_rec'],
@@ -284,17 +284,25 @@ def main(args):
                 "val_metrics/angles_rec": test_stats['angles_rec']
                 }
 
+        if args.semantic_classes > 0:
+            # need to log additional metrics for semantically-rich floorplans
+            train_log_dict["train/loss_ce_room"] = train_stats['loss_ce_room']
+            val_log_dict["val/loss_ce_room"] = test_stats['loss_ce_room']
+            val_log_dict["val_metrics/room_sem_prec"] = test_stats['room_sem_prec']
+            val_log_dict["val_metrics/room_sem_rec"] = test_stats['room_sem_rec']
+            val_log_dict["val_metrics/window_door_prec"] = test_stats['window_door_prec']
+            val_log_dict["val_metrics/window_door_rec"] = test_stats['window_door_rec']
+
+        else:
+            # only apply the rasterization loss for non-semantic floorplans
+            train_log_dict["train/loss_raster"] = train_stats['loss_raster']
+            val_log_dict["val/loss_raster"] =  test_stats['loss_raster']
+
         if 'room_iou' in test_stats:
             val_log_dict["val_metrics/room_iou"] = test_stats['room_iou']
                 
         wandb.log(train_log_dict)
         wandb.log(val_log_dict)
-
-        if args.room_type:
-            wandb.log({
-                "train/loss_ce_room": train_stats['loss_ce_room'],
-                "val/loss_ce_room": test_stats['loss_ce_room']
-                    })
 
         if args.output_dir:
             with (output_dir / "log.txt").open("a") as f:

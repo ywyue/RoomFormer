@@ -109,7 +109,7 @@ class Evaluator():
         plt.savefig("joint_mask.png", bbox_inches='tight')
         assert False
 
-    def evaluate_scene(self, room_polys, show=False, name="ours", dataset_type="s3d"):
+    def evaluate_scene(self, room_polys, room_types=None, window_door_lines=None, window_door_lines_types=None, show=False, name="ours", dataset_type="s3d"):
 
         with torch.no_grad():
             joint_room_map = np.zeros((self.options.height, self.options.width))
@@ -130,17 +130,33 @@ class Evaluator():
 
         gt_polys_list = self.data_rw.gt_sample["polygons_list"]
         gt_polys_list = [np.concatenate([poly, poly[None, 0]]) for poly in gt_polys_list]
+        gt_polys_type_list = self.data_rw.gt_sample["polygons_type_list"]
+        
+        gt_window_doors_list = self.data_rw.gt_sample["window_doors_list"]
+        gt_window_doors_type_list = self.data_rw.gt_sample["window_doors_type_list"]
 
         room_polys = [np.concatenate([poly, poly[None, 0]]) for poly in room_polys]
         
         ignore_mask_region = self.data_rw.gt_sample["wall_map"].cpu().numpy()[0, :, :, 0]
 
         img_size = (joint_room_map.shape[0], joint_room_map.shape[1])
-        quant_result_dict = self.get_quantitative(gt_polys_list, ignore_mask_region, room_polys, img_size, dataset_type=dataset_type)
+        quant_result_dict = self.get_quantitative(
+                                    gt_polys_list, 
+                                    gt_polys_type_list, 
+                                    gt_window_doors_list, 
+                                    gt_window_doors_type_list, 
+                                    ignore_mask_region, 
+                                    room_polys, 
+                                    room_types,
+                                    window_door_lines,
+                                    window_door_lines_types,
+                                    None, 
+                                    img_size, 
+                                    dataset_type=dataset_type)
 
         return quant_result_dict
 
-    def get_quantitative(self, gt_polys, ignore_mask_region, pred_polys=None, masks_list=None, img_size=(256, 256), dataset_type="s3d"):
+    def get_quantitative(self, gt_polys, gt_polys_types, gt_window_doors, gt_window_doors_types, ignore_mask_region, pred_polys=None, pred_types=None, pred_window_doors=None, pred_window_doors_types=None, masks_list=None, img_size=(256, 256), dataset_type="s3d"):
         def get_room_metric():
             pred_overlaps = [False] * len(pred_room_map_list)
 
@@ -170,8 +186,11 @@ class Evaluator():
 
             # import pdb; pdb.set_trace()
             room_metric = [np.bool((1 - pred_overlaps[ind]) * pred2gt_exists[ind]) for ind in range(len(pred_polys))]
-
-            return room_metric
+            if pred_types is not None:
+                room_sem_metric = [np.bool((1 - pred_overlaps[ind]) * pred2gt_exists_sem[ind]) for ind in range(len(pred_polys))]
+            else:
+                room_sem_metric = None
+            return room_metric, room_sem_metric
 
         def get_corner_metric():
 
@@ -356,6 +375,7 @@ class Evaluator():
         gt_polys_sorted_indcs = [i[0] for i in sorted(enumerate(gt_room_map_list), key=poly_map_sort_key, reverse=True)]
 
         gt_polys = [gt_polys[ind] for ind in gt_polys_sorted_indcs]
+        gt_polys_types = [gt_polys_types[ind] for ind in gt_polys_sorted_indcs]
         gt_room_map_list = [gt_room_map_list[ind] for ind in gt_polys_sorted_indcs]
 
         if pred_polys is not None:
@@ -371,10 +391,18 @@ class Evaluator():
         gt2pred_indices = [-1] * len(gt_polys)
         gt2pred_exists = [False] * len(gt_polys)
 
+        gt2pred_indices_sem = [-1] * len(gt_polys)
+        gt2pred_exists_sem = [False] * len(gt_polys)
+
+        gt2pred_indices_wd = [-1] * len(gt_window_doors)
+        gt2pred_exists_wd = [False] * len(gt_window_doors)
+
+        ### match predicted rooms to ground truth rooms
         for gt_ind, gt_map in enumerate(gt_room_map_list):
 
             best_iou = 0.
             best_ind = -1
+            best_ind_sem = -1
             for pred_ind, pred_map in enumerate(pred_room_map_list):
 
                 intersection = (1 - ignore_mask_region) * ((pred_map + gt_map) == 2)
@@ -387,6 +415,10 @@ class Evaluator():
                 if iou > best_iou and iou > 0.5:
                     best_iou = iou
                     best_ind = pred_ind
+
+                    if pred_types is not None:
+                        if gt_polys_types[gt_ind] == pred_types[pred_ind]:
+                            best_ind_sem = pred_ind
 
             #         plt.figure()
             #         plt.subplot(121)
@@ -402,27 +434,81 @@ class Evaluator():
             gt2pred_indices[gt_ind] = best_ind
             gt2pred_exists[gt_ind] = best_ind != -1
 
+            if pred_types is not None:
+                gt2pred_indices_sem[gt_ind] = best_ind_sem
+                gt2pred_exists_sem[gt_ind] = best_ind_sem != -1
+
             # if best_ind == -1:
             #     plt.figure()
             #     plt.imshow(gt_map)
             #     plt.show()
 
+        ### match predicted window/door to ground truth window/door
+        if pred_window_doors_types is not None:
+            for gt_ind, gt_wd in enumerate(gt_window_doors):
+                best_dist = 100000.
+                best_ind = -1
+
+                for pred_ind, pred_wd in enumerate(pred_window_doors):
+
+                    dist_match1 = [np.linalg.norm(gt_wd[0] - pred_wd[0], axis=0, ord=2), np.linalg.norm(gt_wd[1] - pred_wd[1], axis=0, ord=2)]
+                    dist_match2 = [np.linalg.norm(gt_wd[0] - pred_wd[1], axis=0, ord=2), np.linalg.norm(gt_wd[1] - pred_wd[0], axis=0, ord=2)]
+
+                    dist_match = dist_match1 if sum(dist_match1) < sum(dist_match2) else dist_match2
+
+                    if sum(dist_match) < best_dist and dist_match[0] < corner_metric_thresh and dist_match[1] < corner_metric_thresh and gt_window_doors_types[gt_ind] == pred_window_doors_types[pred_ind]:
+                        best_dist = sum(dist_match)
+                        best_ind = pred_ind
+
+                gt2pred_indices_wd[gt_ind] = best_ind
+                gt2pred_exists_wd[gt_ind] = best_ind != -1
+
+
         pred2gt_exists = [True if pred_ind in gt2pred_indices else False for pred_ind, _ in enumerate(pred_polys)]
         pred2gt_indices = [gt2pred_indices.index(pred_ind) if pred_ind in gt2pred_indices else -1 for pred_ind, _ in enumerate(pred_polys)]
 
+        if pred_types is not None:
+            pred2gt_exists_sem = [True if pred_ind in gt2pred_indices_sem else False for pred_ind, _ in enumerate(pred_polys)]
+            pred2gt_indices_sem = [gt2pred_indices_sem.index(pred_ind) if pred_ind in gt2pred_indices_sem else -1 for pred_ind, _ in enumerate(pred_polys)]
+
+        if pred_window_doors_types is not None:
+            pred2gt_exists_wd = [True if pred_ind in gt2pred_indices_wd else False for pred_ind, _ in enumerate(pred_window_doors)]
+            pred2gt_indices_wd = [gt2pred_indices_wd.index(pred_ind) if pred_ind in gt2pred_indices_wd else -1 for pred_ind, _ in enumerate(pred_window_doors)]
+        
+        
         # print(gt2pred_indices)
         # print(pred2gt_indices)
         # assert False
 
         # import pdb; pdb.set_trace()
-        room_metric = get_room_metric()
+
+        room_metric, room_sem_metric = get_room_metric()
+
+
+        ###### metric for room WITHOUT considering type ######
         if len(pred_polys) == 0:
             room_metric_prec = 0
         else:
             room_metric_prec = sum(room_metric) / float(len(pred_polys))
         room_metric_rec = sum(room_metric) / float(len(gt_polys))
 
+        ###### metric for room WITH considering type ######
+        if pred_types is not None:
+            if len(pred_polys) == 0:
+                room_sem_metric_prec = 0
+            else:
+                room_sem_metric_prec = sum(room_sem_metric) / float(len(pred_polys))
+            room_sem_metric_rec = sum(room_sem_metric) / float(len(gt_polys))
 
+        ###### metric for window and door ######
+        if pred_window_doors_types is not None:
+            if len(pred_window_doors) == 0:
+                window_door_metric_prec = 0
+            else:
+                window_door_metric_prec = sum(pred2gt_exists_wd) / float(len(pred_window_doors))
+            window_door_metric_rec = sum(pred2gt_exists_wd) / float(len(gt_window_doors))
+
+        ###### metric for corner ######
         corner_metric = get_corner_metric()
         pred_corners_n = sum([poly.shape[0] - 1 for poly in pred_polys])
         gt_corners_n = sum([poly.shape[0] - 1 for poly in gt_polys])
@@ -433,7 +519,7 @@ class Evaluator():
             corner_metric_prec = 0
         corner_metric_rec = sum(corner_metric) / float(gt_corners_n)
 
-
+        ###### metric for angle ######
         angles_metric = get_angle_metric()
 
         if pred_corners_n > 0:
@@ -442,12 +528,21 @@ class Evaluator():
             angles_metric_prec = 0
         angles_metric_rec = sum(angles_metric) / float(gt_corners_n)
 
+        # sanity check
         assert room_metric_prec <= 1
         assert room_metric_rec <= 1
         assert corner_metric_prec <= 1
         assert corner_metric_rec <= 1
         assert angles_metric_prec <= 1
         assert angles_metric_rec <= 1
+
+        if pred_types is not None:
+            assert room_sem_metric_prec <= 1
+            assert room_sem_metric_rec <= 1
+        
+        if pred_window_doors_types is not None:
+            assert window_door_metric_prec <= 1
+            assert window_door_metric_rec <= 1
 
         result_dict = {
             'room_prec': room_metric_prec,
@@ -457,5 +552,13 @@ class Evaluator():
             'angles_prec': angles_metric_prec,
             'angles_rec': angles_metric_rec,
         }
+
+        if pred_types is not None:
+            result_dict['room_sem_prec'] = room_sem_metric_prec
+            result_dict['room_sem_rec'] = room_sem_metric_rec
+
+        if pred_window_doors_types is not None:
+            result_dict['window_door_prec'] = window_door_metric_prec
+            result_dict['window_door_rec'] = window_door_metric_rec
 
         return result_dict

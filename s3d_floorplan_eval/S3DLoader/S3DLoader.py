@@ -275,18 +275,24 @@ class S3DDataset(Dataset):
 
         polys = parse_floor_plan_polys(annos)
 
-        room_map, polygons_list = generate_floorplan(annos, polys, h, w, ignore_types=['outwall', 'door', 'window'], constant_color=False, shuffle=self.gen_input_candidates)
+        room_map, polygons_list, polygons_type_list = generate_floorplan(annos, polys, h, w, ignore_types=['outwall', 'door', 'window'], constant_color=False, shuffle=self.gen_input_candidates)
 
         room_map = cv2.dilate(room_map, np.ones((5,5)))
 
 
-        wall_map, _ = generate_floorplan(annos, polys, h, w, ignore_types=[], include_types=['outwall'], constant_color=True)
+        wall_map, _, _ = generate_floorplan(annos, polys, h, w, ignore_types=[], include_types=['outwall'], constant_color=True)
         wall_map *= (room_map == 0)
+
+        window_doors_map, window_doors_list, window_doors_type_list = generate_floorplan(annos, polys, h, w, ignore_types=[], include_types=['door', 'window'], fillpoly=False, constant_color=True, shuffle=self.gen_input_candidates)
 
         sample['room_map'] = room_map.astype(np.float32)
         sample['wall_map'] = wall_map.astype(np.float32)
 
         sample['polygons_list'] = polygons_list
+        sample['polygons_type_list'] = polygons_type_list
+
+        sample['window_doors_list'] = window_doors_list
+        sample['window_doors_type_list'] = window_doors_type_list
 
     def generate_density(self, points, width=256, height=256):
         image_res_tensor = torch.tensor([width, height], device=self.device).reshape(1, 1, 2)
