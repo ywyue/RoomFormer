@@ -37,6 +37,9 @@ This repository provides code, data and pretrained models for **RoomFormer**, a 
       <a href="#training">Training</a>
     </li>
     <li>
+      <a href="#semantically-rich-floorplan">Semantically-rich Floorplan</a>
+    </li>
+    <li>
       <a href="#citation">Citation</a>
     </li>
     <li>
