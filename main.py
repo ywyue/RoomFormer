@@ -120,7 +120,7 @@ def main(args):
 
     # setup wandb for logging
     utils.setup_wandb()
-    wandb.init(project="Detr_floor")
+    wandb.init(project="RoomFormer")
     wandb.run.name = args.run_name
 
     device = torch.device(args.device)
