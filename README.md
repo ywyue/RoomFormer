@@ -1,7 +1,6 @@
-## Connecting the Dots: Floorplan Reconstruction Using Two-Level Queries
-
-
 <div align="center">
+<h2 align="center">Connecting the Dots: Floorplan Reconstruction Using Two-Level Queries</h2>
+<h3 align="center">CVPR 2023</h3>
 <a href="https://n.ethz.ch/~yuayue/">Yuanwen Yue</a>, <a href="https://theodorakontogianni.github.io/">Theodora Kontogianni</a>, <a href="https://igp.ethz.ch/personen/person-detail.html?persid=143986">Konrad Schindler</a>, <a href="https://francisengelmann.github.io/">Francis Engelmann</a>
 
 ETH Zurich
@@ -13,7 +12,7 @@ ETH Zurich
 </div>
 
 
-This repository provides code, data and pretrained models for **RoomFormer**, a Transformer model for floorplan reconstruction.
+This repository provides code, data and pretrained models for **RoomFormer**, a Transformer model for single-stage floorplan reconstruction.
 
 [[Project Webpage](https://ywyue.github.io/RoomFormer/)]    [[Paper](https://arxiv.org/abs/2211.15658)]
 
@@ -145,7 +144,7 @@ If you want to evaluate our model trained on a "tight" room layout (see paper ap
 ```
 Please note the evaluation still runs on the unmodified groundtruth floorplans from MonteFloor. However, we also provide our processed "tight" room layout [here](https://polybox.ethz.ch/index.php/s/iPBvp7zAjCXRjyd) in case one wants to retrain the model on it.
 #### SceneCAD
-We adapted the evaluation scripts from MonteFloor to evaluate SceneCAD:
+We adapt the evaluation scripts from MonteFloor to evaluate SceneCAD:
 ```shell
 ./tools/eval_scenecad.sh
 ```
@@ -183,7 +182,7 @@ If you find RoomFormer useful in your research, please cite our paper:
 
 ## Acknowledgment
 
-We thank the authors of HEAT and MonteFloor for providing results on Structured3D for convenient comparison. Theodora Kontogianni and Francis Engelmann are postdoctoral research fellows at the ETH AI Center. We also thank for the following excellent open source projects:
+We thank the authors of HEAT and MonteFloor for providing results on Structured3D for better comparison. Theodora Kontogianni and Francis Engelmann are postdoctoral research fellows at the ETH AI Center. We also thank for the following excellent open source projects:
 
 * [DETR](https://github.com/facebookresearch/detr)
 * [Deformable-DETR](https://github.com/fundamentalvision/Deformable-DETR)

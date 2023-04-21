@@ -1,15 +1,6 @@
-# ------------------------------------------------------------------------
-# Deformable DETR
-# Copyright (c) 2020 SenseTime. All Rights Reserved.
-# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
-# ------------------------------------------------------------------------
-# Modified from DETR (https://github.com/facebookresearch/detr)
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-# ------------------------------------------------------------------------
+# Modified from Deformable DETR
+# Yuanwen Yue
 
-"""
-Deformable DETR model and criterion classes.
-"""
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -29,7 +20,7 @@ def _get_clones(module, N):
 
 
 class RoomFormer(nn.Module):
-    """ This is the Deformable Floormer module that performs floorplan reconstruction """
+    """ This is the RoomFormer module that performs floorplan reconstruction """
     def __init__(self, backbone, transformer, num_classes, num_queries, num_polys, num_feature_levels,
                  aux_loss=True, with_poly_refine=False, masked_attn=False, semantic_classes=-1):
         """ Initializes the model.
