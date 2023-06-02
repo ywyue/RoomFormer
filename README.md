@@ -14,7 +14,7 @@ ETH Zurich
 
 This repository provides code, data and pretrained models for **RoomFormer**, a Transformer model for single-stage floorplan reconstruction.
 
-[[Project Webpage](https://ywyue.github.io/RoomFormer/)]    [[Paper](https://arxiv.org/abs/2211.15658)]
+[[Project Webpage](https://ywyue.github.io/RoomFormer/)]    [[Paper](https://arxiv.org/abs/2211.15658)]    [[Video](https://www.youtube.com/watch?v=yzYe4yVN1NU)]
 
 
 <details open="open" style='padding: 10px; border-radius:5px 30px 30px 5px; border-style: solid; border-width: 1px;'>
