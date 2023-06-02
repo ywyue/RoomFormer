@@ -115,7 +115,7 @@
                   <!-- Video Link. -->
                   <span class="link-block">
                     <a
-                      href=""
+                      href="https://www.youtube.com/watch?v=yzYe4yVN1NU"
                       class="external-link button is-normal is-rounded is-dark"
                     >
                       <span class="icon">
@@ -182,14 +182,38 @@
         </div>
         <!--/ Abstract. -->
 
+
         <section class="hero teaser">
           <div class="container is-max-desktop center">
             <div class="hero-body" align="center">
               <h2 class="title is-3">RoomFormer</h2>
                 <img src="assets/model.gif" style="max-width: 100%" />
+
+                <div class="content has-text-justified">
+                  <p>
+                    Illustration of the <b>RoomFormer</b> model. Given a top-down-view density map of the input point cloud, (a) the feature backbone extracts multi-scale features, adds positional encodings, and flattens them before passing them into the (b) Transformer encoder. (c) The Transformer decoder takes as input our two-level queries, one level for the room polygons (up to <em>M</em>) and one level for their corners (up to <em>N</em> per room polygon). A feed-forward network (FFN) predicts a class <em>c</em> for each query to accommodate for varying numbers of rooms and corners. During training, the polygon matching guarantees optimal assignment between predicted and groundtruth polygons.
+                  </p>
+                </div>
             </div>
           </div>
         </section>
+
+        <!-- Paper video. -->
+        <div class="columns is-centered has-text-centered">
+          <div class="column is-four-fifths">
+            <h2 class="title is-3">Video</h2>
+            <div class="publication-video">
+              <iframe
+                src="https://www.youtube.com/embed/yzYe4yVN1NU?rel=0&amp;showinfo=0"
+                frameborder="0"
+                allow="autoplay; encrypted-media"
+                allowfullscreen
+              ></iframe>
+            </div>
+          </div>
+        </div>
+        <!--/ Paper video. -->
+
 
         <section class="hero teaser">
           <div class="container is-max-desktop center">
@@ -218,21 +242,7 @@
           </div>
         </section>
 
-        <!-- Paper video. -->
-        <div class="columns is-centered has-text-centered">
-          <div class="column is-four-fifths">
-            <h2 class="title is-3">Video (Coming soon)</h2>
-            <!-- <div class="publication-video">
-              <iframe
-                src="https://www.youtube.com/embed/MrKrnHhk8IA?rel=0&amp;showinfo=0"
-                frameborder="0"
-                allow="autoplay; encrypted-media"
-                allowfullscreen
-              ></iframe>
-            </div> -->
-          </div>
-        </div>
-        <!--/ Paper video. -->
+
       </div>
     </section>
 
