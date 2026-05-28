@@ -25,6 +25,36 @@ def custom_L1_loss(src_polys, target_polys, target_len):
         total_loss += torch.cdist(src_polys[i, :target_len[i]].unsqueeze(0), all_polys , p=1).min()
     total_loss = total_loss/target_len.sum()
     return total_loss
+
+
+def manhattan_orthogonal_loss(src_polys, target_len, eps=1e-6):
+    """Penalize non-orthogonal adjacent polygon edges with |cos(theta)|."""
+    if src_polys.numel() == 0:
+        return src_polys.sum() * 0.
+
+    total_loss = src_polys.sum() * 0.
+    total_corners = 0
+    for i in range(src_polys.shape[0]):
+        num_coords = int(target_len[i].item())
+        if num_coords < 6:
+            continue
+
+        poly = src_polys[i, :num_coords].view(-1, 2)
+        prev_vec = poly.roll(1, 0) - poly
+        next_vec = poly.roll(-1, 0) - poly
+        prev_norm = torch.norm(prev_vec, p=2, dim=1)
+        next_norm = torch.norm(next_vec, p=2, dim=1)
+        valid = (prev_norm > eps) & (next_norm > eps)
+        if valid.sum() == 0:
+            continue
+
+        cos_sim = F.cosine_similarity(prev_vec[valid], next_vec[valid], dim=1, eps=eps)
+        total_loss = total_loss + cos_sim.abs().sum()
+        total_corners += int(valid.sum().item())
+
+    if total_corners == 0:
+        return src_polys.sum() * 0.
+    return total_loss / total_corners
     
 class ClippingStrategy(nn.Module):
     def __init__(self, cfg, is_boundary=False):

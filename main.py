@@ -93,10 +93,18 @@ def get_args_parser():
     parser.add_argument('--room_cls_loss_coef', default=0.2, type=float)
     parser.add_argument('--coords_loss_coef', default=5, type=float)
     parser.add_argument('--raster_loss_coef', default=1, type=float)
+    parser.add_argument('--manhattan_loss_coef', default=1, type=float,
+                        help='Coefficient for the parameter-free Manhattan orthogonality regularizer')
 
     # dataset parameters
     parser.add_argument('--dataset_name', default='stru3d')
     parser.add_argument('--dataset_root', default='data/stru3d', type=str)
+    parser.add_argument('--input_channels', default=1, type=int,
+                        help='Number of input channels for the image backbone')
+    parser.add_argument('--use_depth_input', action='store_true',
+                        help='Read a depth map and concatenate it with RGB/density input for early fusion')
+    parser.add_argument('--depth_root', default='', type=str,
+                        help='Optional root containing train/val/test depth maps with COCO file names')
 
     parser.add_argument('--output_dir', default='output',
                         help='path where to save, empty for no saving')
@@ -266,7 +274,9 @@ def main(args):
                 "train/loss": train_stats['loss'],
                 "train/loss_ce": train_stats['loss_ce'],
                 "train/loss_coords": train_stats['loss_coords'],
+                "train/loss_manhattan": train_stats['loss_manhattan'],
                 "train/loss_coords_unscaled": train_stats['loss_coords_unscaled'],
+                "train/loss_manhattan_unscaled": train_stats['loss_manhattan_unscaled'],
                 "train/cardinality_error": train_stats['cardinality_error_unscaled']
                 }
 
@@ -274,7 +284,9 @@ def main(args):
                 "val/loss": test_stats['loss'],
                 "val/loss_ce": test_stats['loss_ce'],
                 "val/loss_coords": test_stats['loss_coords'],
+                "val/loss_manhattan": test_stats['loss_manhattan'],
                 "val/loss_coords_unscaled": test_stats['loss_coords_unscaled'],
+                "val/loss_manhattan_unscaled": test_stats['loss_manhattan_unscaled'],
                 "val/cardinality_error": test_stats['cardinality_error_unscaled'],
                 "val_metrics/room_prec": test_stats['room_prec'],
                 "val_metrics/room_rec": test_stats['room_rec'],

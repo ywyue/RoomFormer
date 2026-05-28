@@ -92,13 +92,26 @@ class Backbone(BackboneBase):
     def __init__(self, name: str,
                  train_backbone: bool,
                  return_interm_layers: bool,
-                 dilation: bool):
+                 dilation: bool,
+                 input_channels: int = 1):
         norm_layer = FrozenBatchNorm2d
         backbone = getattr(torchvision.models, name)(
             replace_stride_with_dilation=[False, False, dilation],
             pretrained=True, norm_layer=norm_layer)
-        # modify the first layer to compatible with single channel input
-        backbone.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        if input_channels != backbone.conv1.in_channels:
+            old_conv = backbone.conv1
+            backbone.conv1 = nn.Conv2d(
+                input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False
+            )
+            with torch.no_grad():
+                if input_channels == 1:
+                    backbone.conv1.weight.copy_(old_conv.weight.mean(dim=1, keepdim=True))
+                elif input_channels > 3:
+                    backbone.conv1.weight[:, :3].copy_(old_conv.weight)
+                    mean_weight = old_conv.weight.mean(dim=1, keepdim=True)
+                    backbone.conv1.weight[:, 3:].copy_(mean_weight.repeat(1, input_channels - 3, 1, 1))
+                else:
+                    backbone.conv1.weight.copy_(old_conv.weight[:, :input_channels])
         assert name not in ('resnet18', 'resnet34'), "number of channels are hard coded"
         super().__init__(backbone, train_backbone, return_interm_layers)
         if dilation:
@@ -129,6 +142,12 @@ def build_backbone(args):
     position_embedding = build_position_encoding(args)
     train_backbone = args.lr_backbone > 0
     return_interm_layers = args.num_feature_levels > 1
-    backbone = Backbone(args.backbone, train_backbone, return_interm_layers, args.dilation)
+    backbone = Backbone(
+        args.backbone,
+        train_backbone,
+        return_interm_layers,
+        args.dilation,
+        input_channels=getattr(args, "input_channels", 1),
+    )
     model = Joiner(backbone, position_embedding)
     return model

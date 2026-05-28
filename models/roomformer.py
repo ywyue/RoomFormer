@@ -10,7 +10,7 @@ from util.misc import NestedTensor, nested_tensor_from_tensor_list, interpolate,
 
 from .backbone import build_backbone
 from .matcher import build_matcher
-from .losses import custom_L1_loss, MaskRasterizationLoss
+from .losses import custom_L1_loss, manhattan_orthogonal_loss, MaskRasterizationLoss
 from .deformable_transformer import build_deforamble_transformer
 import copy
 
@@ -270,6 +270,7 @@ class SetCriterion(nn.Module):
 
         losses = {}
         losses['loss_coords'] = loss_coords
+        losses['loss_manhattan'] = manhattan_orthogonal_loss(src_polys.flatten(1, 2), target_len)
 
         # omit the rasterization loss for semantically-rich floorplan
         if self.semantic_classes == -1:
@@ -384,9 +385,9 @@ def build(args, train=True):
                     'loss_ce': args.cls_loss_coef, 
                     'loss_ce_room': args.room_cls_loss_coef,
                     'loss_coords': args.coords_loss_coef,
-                    'loss_raster': args.raster_loss_coef
+                    'loss_raster': args.raster_loss_coef,
+                    'loss_manhattan': args.manhattan_loss_coef,
                     }
-    weight_dict['loss_dir'] = 1
 
     enc_weight_dict = {}
     enc_weight_dict.update({k + f'_enc': v for k, v in weight_dict.items()})

@@ -1,2 +1,6 @@
 __pycache__
 .pyc
+.DS_Store
+checkpoints/
+data/
+s3d_floorplan_eval/montefloor_data/
